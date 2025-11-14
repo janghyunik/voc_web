@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>VOC 등록</h2>
+<p class="desc">부서 개선을 위해 자유롭게 의견을 남겨주세요. 내용은 요약되어 관리자에게 전달됩니다.</p>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<form method="post" class="card form-card">
+  <label>작성자</label>
+  <input type="text" name="writer" placeholder="홍길동" required>
+
+  <label>제목</label>
+  <input type="text" name="title" placeholder="예: 3라인 포장 공정 개선 제안" required>
+
+  <label>내용</label>
+  <textarea name="content" rows="7" placeholder="자세한 내용을 적어주세요." required></textarea>
+
+  <button type="submit" class="btn-primary">등록하기</button>
+</form>
+{% endblock %}

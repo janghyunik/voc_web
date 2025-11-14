@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ title or "부서 소통 포털 & VOC" }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="logo-dot"></div>
+    <span class="logo-text">부서 소통 포털</span>
+  </div>
+  <nav class="nav">
+    <a href="{{ url_for('home') }}">메인</a>
+    <a href="{{ url_for('announcements_list') }}">전달사항</a>
+    <a href="{{ url_for('announcements_new') }}">전달사항 등록</a>
+    <a href="{{ url_for('submit_voc') }}" class="nav-primary">VOC 등록</a>
+    <a href="{{ url_for('voc_board') }}">VOC 목록</a>
+  </nav>
+</header>
+
+<main class="container">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+  Made for our department · Flask + SQLite
+</footer>
+</body>
+</html>

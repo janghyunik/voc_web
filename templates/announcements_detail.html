@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>전달사항 상세</h2>
+
+<div class="card">
+  <h3>{{ ann.title }}</h3>
+  <div class="muted" style="margin-bottom:10px;">
+    {{ ann.created_at.strftime('%Y-%m-%d %H:%M') }}
+  </div>
+  <div class="ann-body">
+    {{ ann.body | replace('\n', '<br>') | safe }}
+  </div>
+  <div style="margin-top:14px;">
+    <a class="btn-secondary" href="{{ url_for('announcements_list') }}">목록으로</a>
+  </div>
+</div>
+{% endblock %}

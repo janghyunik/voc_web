@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- MTBI 카드 -->
+<section class="card">
+  <div class="section-title">
+    <h2>설비 MTBI 지수</h2>
+    <div class="mtbi-tabs">
+      <button class="mtbi-tab active" data-range="daily">일간</button>
+      <button class="mtbi-tab" data-range="weekly">주간</button>
+      <button class="mtbi-tab" data-range="monthly">월간</button>
+    </div>
+  </div>
+
+  <div class="mtbi-chart-wrap" style="height:300px;">
+    <canvas id="mtbiChart"></canvas>
+  </div>
+
+  {% if (not mtbi.daily) and (not mtbi.weekly) and (not mtbi.monthly) %}
+    <div class="empty">
+      <p>MTBI 데이터가 없습니다.</p>
+      <p class="muted">data/mtbi.json 파일에 집계 결과를 넣어주시면 자동으로 그래프가 표시됩니다.</p>
+    </div>
+  {% endif %}
+</section>
+
+<section class="grid-2">
+  <!-- 최신 전달사항 -->
+  <div class="card">
+    <div class="section-title">
+      <h2>부서 전달사항</h2>
+      <a class="btn-secondary" href="{{ url_for('announcements_list') }}">더 보기</a>
+    </div>
+    <ul class="list">
+      {% if top_ann %}
+        {% for ann in top_ann %}
+          <li>
+            <a class="ann-item" href="{{ url_for('announcements_detail', ann_id=ann.id) }}">
+              <span class="ann-title">{{ ann.title }}</span>
+              <span class="ann-date">{{ ann.created_at.strftime('%Y-%m-%d') }}</span>
+            </a>
+          </li>
+        {% endfor %}
+      {% else %}
+        <li class="muted">등록된 전달사항이 없습니다. 상단의 '전달사항 등록'에서 작성하세요.</li>
+      {% endif %}
+    </ul>
+  </div>
+
+  <!-- 생일·기념일 위젯 -->
+  <div class="card">
+    <div class="section-title">
+      <h2>이번 주 생일·기념일</h2>
+      <span class="muted">data/birthdays.json 기준</span>
+    </div>
+
+    {% if bday_events and bday_events|length > 0 %}
+      <ul class="bday-list">
+        {% for ev in bday_events %}
+          <li class="bday-item">
+            <div class="bday-left">
+              <span class="bday-type {% if ev.type == '생일' %}cake{% else %}anniv{% endif %}">
+                {% if ev.type == '생일' %}🎂{% else %}🎈{% endif %}
+                {{ ev.type }}
+              </span>
+              <span class="bday-name">{{ ev.name }}</span>
+              <span class="bday-date">{{ ev.display }}</span>
+            </div>
+            <div class="bday-right">
+              <span class="bday-when {% if ev.is_today %}today{% endif %}">
+                {{ ev.when }}
+              </span>
+              <button class="msg-btn" data-name="{{ ev.name }}" data-type="{{ ev.type }}">메시지</button>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="empty">
+        <p>이번 주 생일·기념일이 없습니다.</p>
+        <p class="muted">data/birthdays.json 파일을 추가하면 자동으로 표시됩니다.</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+<!-- 행사 사진 갤러리 -->
+<section class="card">
+  <div class="section-title">
+    <h2>행사 사진</h2>
+    <span class="muted">static/gallery/events 폴더 사진 자동 표시</span>
+  </div>
+
+  {% if images %}
+    <div class="carousel">
+      <button class="car-arrow left" id="carPrev">‹</button>
+      <div class="car-track" id="galleryTrack">
+        {% for it in images %}
+          <div class="car-item">
+            <a href="{{ url_for('static', filename=it.src) }}" target="_blank" class="gallery-imgwrap">
+              <img src="{{ url_for('static', filename=it.src) }}" alt="event">
+            </a>
+            <div class="like-bar">
+              <button class="like-btn" data-img="{{ it.name }}">👍 좋아요</button>
+              <span class="like-count" id="like_{{ it.name|replace('.','_') }}">{{ likes.get(it.name, 0) }}</span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <button class="car-arrow right" id="carNext">›</button>
+    </div>
+  {% else %}
+    <div class="empty">
+      <p>표시할 사진이 없습니다.</p>
+      <p class="muted">static/gallery/events 폴더에 이미지를 넣어주세요.</p>
+    </div>
+  {% endif %}
+</section>
+
+<div id="toast" class="toast" style="display:none;">메시지를 복사했습니다 🎉</div>
+
+<!-- Chart.js & DataLabels plugin (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+<script>
+  // ================= MTBI 혼합 차트 (막대 + 선 + 값 라벨) =================
+  const mtbiData = {{ mtbi | tojson | safe }};
+
+  (function initMtbiChart() {
+    const ctx = document.getElementById('mtbiChart');
+    if (!ctx) return;
+
+    // 플러그인 등록
+    if (window.ChartDataLabels) {
+      Chart.register(ChartDataLabels);
+    }
+
+    function toDataset(range) {
+      if (range === 'daily') {
+        const ds = mtbiData.daily || [];
+        return {
+          labels: ds.map(x => x.date),
+          values: ds.map(x => x.mtbi)
+        };
+      }
+      if (range === 'weekly') {
+        const ds = mtbiData.weekly || [];
+        return {
+          labels: ds.map(x => x.label),
+          values: ds.map(x => x.mtbi)
+        };
+      }
+      if (range === 'monthly') {
+        const ds = mtbiData.monthly || [];
+        return {
+          labels: ds.map(x => x.label),
+          values: ds.map(x => x.mtbi)
+        };
+      }
+      return { labels: [], values: [] };
+    }
+
+    let currentRange = 'daily';
+    let ds = toDataset(currentRange);
+
+    if ((!ds.labels || ds.labels.length === 0) &&
+        (!mtbiData.weekly || !mtbiData.weekly.length) &&
+        (!mtbiData.monthly || !mtbiData.monthly.length)) {
+      return;
+    }
+
+    // 공통 포매터 (소수 1자리)
+    const fmt = (v) => {
+      if (v === null || v === undefined) return '';
+      const num = Number(v);
+      if (Number.isNaN(num)) return '';
+      return num.toFixed(1);
+    };
+
+    const chart = new Chart(ctx, {
+      data: {
+        labels: ds.labels,
+        datasets: [
+          {
+            type: 'bar',
+            label: 'MTBI',
+            data: ds.values,
+            backgroundColor: 'rgba(59, 130, 246, 0.28)',
+            borderColor: 'rgba(59, 130, 246, 0.9)',
+            borderWidth: 1,
+            borderRadius: 6,
+            yAxisID: 'y',
+            // 막대 위 값 라벨
+            datalabels: {
+              anchor: 'end',
+              align: 'end',
+              offset: 2,
+              color: '#1f2937',
+              font: { weight: '700', size: 10 },
+              formatter: fmt,
+              clamp: true
+            }
+          },
+          {
+            type: 'line',
+            label: '추세',
+            data: ds.values,
+            borderColor: 'rgba(37, 99, 235, 1)',
+            borderWidth: 2,
+            tension: 0.25,
+            fill: false,
+            pointRadius: 2,
+            pointBackgroundColor: 'rgba(37, 99, 235, 1)',
+            yAxisID: 'y',
+            // 선 위 값 라벨 (막대 라벨과 겹치지 않도록 약간 위/오프셋)
+            datalabels: { display: false }
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            display: true,
+            labels: { boxWidth: 14, font: { size: 11 } }
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`
+            }
+          },
+          // 전역 datalabels 옵션(필요 시)
+          datalabels: {
+            // 겹침이 심하면 다음 옵션을 켤 수 있습니다.
+            // clip: true, // 차트 영역 밖은 잘라내기
+          }
+        },
+        scales: {
+          x: {
+            ticks: { maxRotation: 0, autoSkip: true },
+            grid: { display: false }
+          },
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'MTBI' },
+            ticks: { stepSize: 1 },
+            grid: { color: 'rgba(148, 163, 253, 0.15)' }
+          }
+        }
+      }
+    });
+
+    // 탭 전환: 일간 / 주간 / 월간
+    document.querySelectorAll('.mtbi-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const range = btn.getAttribute('data-range');
+        if (range === currentRange) return;
+
+        currentRange = range;
+        document.querySelectorAll('.mtbi-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const next = toDataset(range);
+        chart.data.labels = next.labels;
+        chart.data.datasets[0].data = next.values; // 막대
+        chart.data.datasets[1].data = next.values; // 선(추세)
+        chart.update();
+      });
+    });
+  })();
+
+  // ================= 행사 사진 캐러셀 =================
+  (function () {
+    const track = document.getElementById('galleryTrack');
+    const prev = document.getElementById('carPrev');
+    const next = document.getElementById('carNext');
+    if (!track) return;
+    const scrollByPage = () => track.clientWidth * 0.9;
+    prev && prev.addEventListener('click', () => {
+      track.scrollBy({ left: -scrollByPage(), behavior: 'smooth' });
+    });
+    next && next.addEventListener('click', () => {
+      track.scrollBy({ left: scrollByPage(), behavior: 'smooth' });
+    });
+  })();
+
+  // ================= 행사 사진 좋아요 =================
+  (function () {
+    function like(imgName) {
+      fetch('{{ url_for("api_gallery_like") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ img: imgName })
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (!d.ok) return;
+        const el = document.getElementById('like_' + imgName.replaceAll('.', '_'));
+        if (el) el.textContent = d.likes;
+        localStorage.setItem('liked_' + imgName, '1');
+      })
+      .catch(() => {});
+    }
+
+    document.querySelectorAll('.like-btn').forEach(btn => {
+      const img = btn.getAttribute('data-img');
+      if (localStorage.getItem('liked_' + img) === '1') {
+        btn.classList.add('liked');
+      }
+      btn.addEventListener('click', () => {
+        if (localStorage.getItem('liked_' + img) === '1') return;
+        like(img);
+        btn.classList.add('liked');
+      });
+    });
+  })();
+
+  // ================= 생일/기념일 축하 메시지 복사 =================
+  (function () {
+    const toast = document.getElementById('toast');
+
+    function showToast() {
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 1500);
+    }
+
+    function makeMessage(name, type) {
+      if (type === '기념일') {
+        return `${name}님, 기념일 축하드립니다! 항상 행복하세요 🎈`;
+      }
+      return `${name}님, 생일 축하합니다! 행복하고 건강한 한 해 되세요 🎂🎉`;
+    }
+
+    document.querySelectorAll('.msg-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const name = btn.getAttribute('data-name');
+        const type = btn.getAttribute('data-type');
+        const msg = makeMessage(name, type);
+        try {
+          await navigator.clipboard.writeText(msg);
+        } catch (e) {
+          const tmp = document.createElement('textarea');
+          tmp.value = msg;
+          document.body.appendChild(tmp);
+          tmp.select();
+          document.execCommand('copy');
+          tmp.remove();
+        }
+        showToast();
+      });
+    });
+  })();
+</script>
+
+{% endblock %}

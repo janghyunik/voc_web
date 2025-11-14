@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>부서 전달사항</h2>
+<p class="desc">부서 공지와 안내 사항입니다.</p>
+
+<div class="card">
+  {% if items %}
+    <ul class="list">
+      {% for ann in items %}
+        <li>
+          <a class="ann-item" href="{{ url_for('announcements_detail', ann_id=ann.id) }}">
+            <span class="ann-title">{{ ann.title }}</span>
+            <span class="ann-date">{{ ann.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="empty">등록된 전달사항이 없습니다.</div>
+  {% endif %}
+</div>
+
+{% if total_pages > 1 %}
+<div class="pagination">
+  {% for p in range(1, total_pages + 1) %}
+    {% if p == page %}
+      <span class="page current">{{ p }}</span>
+    {% else %}
+      <a class="page" href="{{ url_for('announcements_list', page=p) }}">{{ p }}</a>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
+<div style="margin-top:12px;">
+  <a class="btn-primary" href="{{ url_for('announcements_new') }}">새 전달사항 등록</a>
+</div>
+{% endblock %}

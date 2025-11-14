@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>VOC 상세</h2>
+
+<div class="card">
+  <div class="voc-top">
+    <span class="badge">{{ voc.priority }}</span>
+    <span class="voc-title">{{ voc.title }}</span>
+  </div>
+  <p class="voc-meta">
+    작성자: {{ voc.writer }} · {{ voc.created_at.strftime("%Y-%m-%d %H:%M") }}
+  </p>
+
+  <h3>요약</h3>
+  <p>{{ voc.summary }}</p>
+
+  <h3>원문</h3>
+  <pre class="origin-text">{{ voc.content }}</pre>
+
+  <a href="{{ url_for('voc_board') }}" class="btn-secondary">목록으로</a>
+</div>
+{% endblock %}
